@@ -2,35 +2,6 @@
 
 ;;; Commentary:
 
-;;; Useful Commands:
-;;; 
-;;; jme-check-file-style - run checkstyle on the current file.
-;;;
-;;; jme-compile-current-file - compile the current file (saving any unsaved
-;;;    changes).
-;;;      
-;;; jme-compile-project - runs 'mvn clean compile' on the project.
-;;; 
-;;; jme-copy-import-statement - copies an import statement that will import the
-;;;    current file.
-;;; 
-;;; jme-current-class-name-fully-qualified - gets the fully qualified name of
-;;;    the current class.
-;;; 
-;;; jme-current-package-name - gets the current file's package name.
-;;; 
-;;; jme-install-checker - installs the Java flychecker.
-;;; 
-;;; jme-javap-file - disassemble the current Java source file (requires
-;;;    javap-mode).
-;;;
-;;; jme-new-project - creates a new Maven project.
-;;; 
-;;; jme-run-tests - runs unit tests.
-;;;
-;;; jme-sort-imports - sort import statements lexicographically and by
-;;;    user-customizable order.
-
 ;;;=============================================================================
 ;;; Code:
 ;;;=============================================================================
