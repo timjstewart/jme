@@ -7,15 +7,19 @@ useful.
 
 ## Setup
 
-> (require 'flycheck)
-> (global-flycheck-mode t)
+```
+(require 'flycheck)
+(global-flycheck-mode t)
 
-> (require 'jme)
-> (jme)
+(require 'jme)
+(jme)
+```
 
 ## Customization
 
-> (customize-group 'jme)
+```
+(customize-group 'jme)
+```
 
 ## Commands
 
