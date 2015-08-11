@@ -19,7 +19,7 @@
 (defconst +jme-pom-file+ "pom.xml"
   "The name of the Maven Project Object Model file.")
 
-(defconst +jme-cache-file-name+ ".fcj-cache"
+(defconst +jme-cache-file-name+ ".jme-cache"
   "The name of the Java CLASSPATH cache file.
 
 This file, if it exists, is located in the same directory as the
