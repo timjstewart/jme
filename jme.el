@@ -322,7 +322,7 @@ returned."
 (defun jme-build-classpath (project-directory)
   "Return the Java CLASSPATH for the Maven project in PROJECT-DIRECTORY."
   (let ((command (concat "JAVA_HOME=" jme-java-home
-                         " mvn -o dependency:build-classpath | grep -v \"^\\[\"")))
+                         " " jme-maven-home "bin/mvn -o dependency:build-classpath | grep -v \"^\\[\"")))
     (message "Building CLASSPATH.  This may take a while...")
     (concat (file-name-as-directory project-directory)
             "target/classes" ":"
