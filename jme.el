@@ -327,7 +327,7 @@ returned."
   (let ((command (concat "JAVA_HOME=" jme-java-home
                          " " jme-maven-home "bin/mvn -o dependency:build-classpath | grep -v \"^\\[\"")))
     (message "Building CLASSPATH.  This may take a while...")
-    (concat (file-name-as-directory project-directory)
+    (concat (expand-file-name (file-name-as-directory project-directory))
             "target/classes" ":"
             (jme--run-command command project-directory))))
 
