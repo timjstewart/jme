@@ -302,9 +302,11 @@ found or the root of the file system is reached.
 
 Return the project directory if it's found; otherwise nil is
 returned."
-  (if (not (string-equal "/" current-directory))
+  (if (and current-directory
+           (not (string-equal "/" current-directory)))
       (let ((pom-file-path (jme--get-pom-file-path current-directory)))
-        (if (file-exists-p pom-file-path)
+        (if (and pom-file-path
+                 (file-exists-p pom-file-path))
             current-directory
           (jme-find-project-directory
            (file-name-directory (directory-file-name current-directory)))))))
@@ -339,7 +341,7 @@ classpath, and stores it in the classpath cache file."
          (classpath (jme--read-classpath-cache project-directory)))
     (or classpath
         (jme--write-classpath-cache (jme-build-classpath project-directory)
-                                              project-directory))))
+                                    project-directory))))
 
 ;;------------------------------------------------------------------------------
 
@@ -361,7 +363,11 @@ classpath, and stores it in the classpath cache file."
 Note: The returned value may not name an existing file.  In fact,
 this function is mostly used when trying to see if the pom.xml is
 in a particular directory."
-  (concat (file-name-as-directory directory) +jme-pom-file+))
+  (if directory
+      (let ((parent-directory (file-name-as-directory directory)))
+        (if parent-directory
+            (concat parent-directory +jme-pom-file+)
+          nil))))
 
 ;;------------------------------------------------------------------------------
 
