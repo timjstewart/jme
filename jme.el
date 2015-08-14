@@ -262,7 +262,8 @@ When mvn is executed, it will be run from the bin directory
                 (lambda ()
                   (message "Switching Projects...")
                   (if (jme-find-project-directory default-directory)
-                      (jme-install-checker))))))
+                      (jme-install-checker))
+                  (message "Switching Projects... Done.")))))
 
 ;;------------------------------------------------------------------------------
 
@@ -293,7 +294,7 @@ compilation if the save hook is installed."
   (save-buffer)
   (message "Compiling %s..." (buffer-file-name))
   (jme--compile-file (buffer-file-name))
-  (message "Done."))
+  (message "Compiling %s... Done." (buffer-file-name)))
 
 ;;------------------------------------------------------------------------------
 
