@@ -76,6 +76,36 @@ When mvn is executed, it will be run from the bin directory
 ;; Commands
 ;;==============================================================================
 
+(defun jme-yank-import-statement ()
+  "Insert the import statement the top of the kill ring."
+  (interactive)
+  (save-excursion
+    (let ((import (s-trim (substring-no-properties (current-kill 0 t)))))
+      (if (s-starts-with? "import" import)
+          (progn
+            (goto-char (point-min))
+            (search-forward-regexp "^package")
+            (next-line 2)
+            (beginning-of-line)
+            (yank)
+            (jme-sort-imports))
+        (error "Not an import statement: %s" import)))))
+
+;;------------------------------------------------------------------------------
+
+(defun jme-rebuild-classpath-cache ()
+  "Force the CLASSPATH cache to be rebuilt."
+  (interactive)
+  (let ((project-directory (jme-find-project-directory default-directory)))
+    (if project-directory
+        (progn
+          (jme-clear-classpath-cache project-directory)
+          (jme-get-classpath project-directory)
+          (jme-install-checker))
+      (error "Not in a Maven project: %s" default-directory))))
+
+;;------------------------------------------------------------------------------
+
 (defun jme-generate-javadoc ()
   "Generate JavaDoc documentation for the current project."
   (interactive)
@@ -87,7 +117,9 @@ When mvn is executed, it will be run from the bin directory
           (jme--run-command (concat jme-maven-home "bin/mvn"  " -o" " javadoc:javadoc")
                             project-directory)
           (message "Done.  Launching Browser...")
-          (browse-url (concat "file://" (expand-file-name project-directory) "target/site/apidocs/index.html")))
+          (browse-url (concat "file://"
+                              (expand-file-name project-directory)
+                              "target/site/apidocs/index.html")))
       (error "Not in a Maven project: %s" default-directory))))
   
 ;;------------------------------------------------------------------------------
@@ -178,13 +210,17 @@ When mvn is executed, it will be run from the bin directory
                                           (line-end-position))))
             (push import imports)
             (setq last-import-point (line-end-position))))
-        (setq imports (sort imports (lambda (a b)
-                                      (let ((ai (find-index a))
-                                            (bi (find-index b)))
-                                        (compare a ai b bi)))))
+        (setq imports
+              (sort imports (lambda (a b)
+                              (let ((ai (find-index a))
+                                    (bi (find-index b)))
+                                (compare a ai b bi)))))
         (delete-region first-import-point last-import-point)
         (goto-char first-import-point)
-        (insert (s-join "\n" imports))))))
+        (insert (s-join "\n" (remove-duplicates imports :test #'string-equal)))
+        (delete-blank-lines)
+        (if (not (looking-at "^$"))
+            (insert "\n"))))))
 
 ;;------------------------------------------------------------------------------
 
@@ -324,16 +360,22 @@ returned."
 
 (defun jme-build-classpath (project-directory)
   "Return the Java CLASSPATH for the Maven project in PROJECT-DIRECTORY."
-  (let ((command (concat "JAVA_HOME=" jme-java-home
-                         " " jme-maven-home "bin/mvn -o dependency:build-classpath | grep -v \"^\\[\"")))
-    (message "Building CLASSPATH.  This may take a while...")
-    (concat (expand-file-name (file-name-as-directory project-directory))
-            "target/classes" ":"
-            (jme--run-command command project-directory))))
+  (cl-flet ((should-filter (line)
+                           (or
+                            (s-starts-with? "[INFO]" line)
+                            (s-starts-with? "Downloaded" line)
+                            (s-starts-with? "Downloading" line))))
+    (let ((command (concat "JAVA_HOME=" jme-java-home
+                           " " jme-maven-home "bin/mvn dependency:build-classpath")))
+      (message "Building CLASSPATH.  This may take a while...")
+      (concat (expand-file-name (file-name-as-directory project-directory))
+                      "target/classes" ":"
+                      (apply #'concat (cl-remove-if #'should-filter
+                                    (jme--run-command command project-directory)))))))
 
 ;;------------------------------------------------------------------------------
 
-(defun jme-get-classpath (current-directory)
+(cl-defun jme-get-classpath (current-directory &key (rebuild nil))
   "Return the CLASSPATH for the project that owns CURRENT-DIRECTORY.
 
 First checks in classpath cache.  If not present, builds the
@@ -390,7 +432,7 @@ If the cache file does not exist, return nil."
     (if (not (jme--is-cache-stale project-directory))
         (with-temp-buffer
           (insert-file-contents cache-file-path)
-          (s-trim (buffer-string))))))
+          (s-join ":" (s-split "\n" (s-trim (buffer-string))))))))
 
 ;;------------------------------------------------------------------------------
 
@@ -415,7 +457,7 @@ file."
     (if (or (file-writable-p cache-file-path)
             (not (file-exists-p cache-file-path)))
         (with-temp-buffer
-          (insert classpath)
+          (insert (s-join "\n" (s-split ":" classpath)))
           (write-region (point-min) (point-max)
                         cache-file-path)
           classpath)
@@ -470,7 +512,7 @@ subdirectory of target/classes."
 (defun jme--run-command (command project-directory)
   "Run COMMAND in the PROJECT-DIRECTORY directory."
   (let ((default-directory (file-name-as-directory project-directory)))
-    (shell-command-to-string command)))
+    (s-split "\n" (shell-command-to-string command) t)))
 
 ;;-------------------------------------------------------------------------------
 
