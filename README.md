@@ -33,7 +33,9 @@ useful.
 * jme-current-class-name-fully-qualified - gets the fully qualified
   name of the current class.
 * jme-current-package-name - gets the current file's package name.
-* jme-generate-javadoc - generates JavaDoc HTML documentation and opens the index in your browser.
+* jme-edit-pom-file - edits the current project's pom.xml file.
+* jme-generate-javadoc - generates JavaDoc HTML documentation and
+  opens the index in your browser.
 * jme-install-checker - installs the Java flychecker.
 * jme-javap-file - disassemble the current Java source file (requires
   javap-mode).

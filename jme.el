@@ -76,6 +76,17 @@ When mvn is executed, it will be run from the bin directory
 ;; Commands
 ;;==============================================================================
 
+
+(defun jme-edit-pom-file ()
+  "Edit the pom.xml file in a buffer."
+  (interactive)
+    (let ((project-directory (jme-find-project-directory default-directory)))
+      (if project-directory
+          (find-file (jme--get-pom-file-path project-directory))
+        (error "Not in a Maven project: %s" default-directory))))
+
+;;------------------------------------------------------------------------------
+
 (defun jme-yank-import-statement ()
   "Insert the import statement the top of the kill ring."
   (interactive)
