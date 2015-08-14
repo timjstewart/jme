@@ -76,6 +76,15 @@ When mvn is executed, it will be run from the bin directory
 ;; Commands
 ;;==============================================================================
 
+(defun jme-tidy-buffer ()
+  "Tidy up the current buffer."
+  (interactive)
+  (delete-trailing-whitespace)
+  (indent-region (point-min) (point-max))
+  (jme-sort-imports))
+
+;;------------------------------------------------------------------------------
+
 
 (defun jme-edit-pom-file ()
   "Edit the pom.xml file in a buffer."
@@ -132,7 +141,7 @@ When mvn is executed, it will be run from the bin directory
                               (expand-file-name project-directory)
                               "target/site/apidocs/index.html")))
       (error "Not in a Maven project: %s" default-directory))))
-  
+
 ;;------------------------------------------------------------------------------
 
 (defun jme-run-maven (commands)
@@ -146,7 +155,7 @@ When mvn is executed, it will be run from the bin directory
            (s-split " " commands) project-directory
            :banner (format "Running 'mvn %s' in %s..." commands project-directory)))
       (error "Not in a Maven project: %s" default-directory))))
-  
+
 ;;------------------------------------------------------------------------------
 
 (defun jme-check-file-style ()
@@ -157,11 +166,14 @@ When mvn is executed, it will be run from the bin directory
   (if (not (buffer-file-name))
       (error "Current buffer is not visiting a file"))
   (save-buffer)
+  (message "Checking Style...")
   (jme--run-command-with-output "checkstyle"
-                                :args (list "-c" jme-checkstyle-file (buffer-file-name))
+                                :args (list "-c" (expand-file-name jme-checkstyle-file) (buffer-file-name))
                                 :compilation t
+                                :display 'always
                                 :banner (format "Checking Style: %s"
-                                                (buffer-file-name))))
+                                                (buffer-file-name)))
+  (message "Checking Style... Done."))
 
 ;;------------------------------------------------------------------------------
 

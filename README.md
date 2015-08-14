@@ -47,6 +47,8 @@ useful.
 * jme-run-tests - runs unit tests.
 * jme-sort-imports - sort import statements lexicographically and by
   user-customizable order.
+* jme-tidy-buffer - sorts imports, deletes trailing whitespace, and
+  properly indents the entire file.
 * jme-yank-import-statement - yanks the text at the top of the kill
   ring and, if it's an import, inserts at the top of the file and
   re-organizes the import statements.
