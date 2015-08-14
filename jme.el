@@ -79,12 +79,15 @@ When mvn is executed, it will be run from the bin directory
 (defun jme-tidy-buffer ()
   "Tidy up the current buffer."
   (interactive)
-  (delete-trailing-whitespace)
-  (indent-region (point-min) (point-max))
-  (jme-sort-imports))
+  (if (string-equal "java" (file-name-extension (buffer-file-name)))
+      (progn
+        (delete-trailing-whitespace)
+        (indent-region (point-min) (point-max))
+        (jme-sort-imports)
+        (jme-check-file-style))
+    (error "%s is not a java file" (buffer-file-name))))
 
 ;;------------------------------------------------------------------------------
-
 
 (defun jme-edit-pom-file ()
   "Edit the pom.xml file in a buffer."
