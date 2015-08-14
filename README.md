@@ -53,9 +53,9 @@ useful.
 
 ## Goes Great With
 
-* YASnippets
-* IMenu
-* Projectile
-* Magit
-* javap-mode
 * checkstyle
+* imenu
+* javap-mode
+* magit
+* projectile
+* yasnippet
