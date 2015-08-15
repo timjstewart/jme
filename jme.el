@@ -604,32 +604,26 @@ subdirectory of target/classes."
                                 buffer command args)))
             (set-process-sentinel process #'sentinel)))))))
 
-;;==============================================================================
-;; Todo
-;;==============================================================================
+;;------------------------------------------------------------------------------
 
-;; Make Javap polite for unit test files that are in a different directory.
-;; Turn into minor mode?
-
-;;==============================================================================
-;; Done
-;;==============================================================================
-
-;; Generate JavaDoc
-;; Generate New Project
-;; Run any Maven goals
-;; Consolidate functions that have a command version and a function it delegates to.
-;; Add projectile project switch hook that defines a new flycheck-checker.
-;; Improve signature of functions that run shell commands.
-;; Write to output buffer asynchronously.
-;; Only display output window on error (or debug).
-;; Filter out non-existent jar files in classpath.
-;; Turn on compilation-mode in output buffer.
-;; Make sure that you can write to the output buffer after it's in compilation mode.
-;; Do we need to set JAVA_HOME when running javac?
-;; Disassemble Java File (javap).
-;; sort imports.
-;; Rename project to something more general.
+(cl-defun jme--get-class-names-from-jar (jar-file)
+  "Return all of the Java class names defined in a JAR-FILE."
+  (if (string-equal "jar" (file-name-extension jar-file))
+      (let ((buffer (find-file-noselect (expand-file-name jar-file))))
+        (when buffer
+          (cl-flet ((close-buffer (buffer result)
+                                  (kill-buffer buffer)
+                                  result)
+                    (get-class-path (line)
+                                    (let ((index (string-match "\\([-_a-zA-Z0-1/]*\\).class" line)))
+                                      (if index
+                                          (match-string 1 line)))))
+            (with-current-buffer buffer
+              (close-buffer buffer
+                            (mapcar #'get-class-path
+                                    (remove-if-not (lambda (line) (s-contains? ".class" line))
+                                                   (mapcar #'substring-no-properties
+                                                           (s-lines (buffer-string))))))))))))
 
 (provide 'jme)
 ;;; jme.el ends here
