@@ -76,6 +76,15 @@ When mvn is executed, it will be run from the bin directory
 ;; Commands
 ;;==============================================================================
 
+(defun jme-import-class ()
+  "Prompt user for a class to import."
+  (interactive "*")
+  (let ((class (jme-helm-project-classes)))
+    (if class
+        (jme-insert-import-statement (concat "import " class ";")))))
+
+;;------------------------------------------------------------------------------
+
 (defun jme-tidy-buffer ()
   "Tidy up the current buffer."
   (interactive)
@@ -99,20 +108,28 @@ When mvn is executed, it will be run from the bin directory
 
 ;;------------------------------------------------------------------------------
 
+(defun jme-insert-import-statement (import)
+  "Insert the IMPORT statement."
+  (interactive)
+  (save-excursion
+    (if (s-starts-with? "import" import)
+        (progn
+          (goto-char (point-min))
+          (search-forward-regexp "^package")
+          (next-line 2)
+          (beginning-of-line)
+          (insert import "\n")
+          (jme-sort-imports))
+      (error "Not an import statement: %s" import))))
+
+;;------------------------------------------------------------------------------
+
 (defun jme-yank-import-statement ()
   "Insert the import statement the top of the kill ring."
   (interactive)
   (save-excursion
     (let ((import (s-trim (substring-no-properties (current-kill 0 t)))))
-      (if (s-starts-with? "import" import)
-          (progn
-            (goto-char (point-min))
-            (search-forward-regexp "^package")
-            (next-line 2)
-            (beginning-of-line)
-            (yank)
-            (jme-sort-imports))
-        (error "Not an import statement: %s" import)))))
+       (jme-insert-import-statement import))))
 
 ;;------------------------------------------------------------------------------
 
@@ -205,7 +222,9 @@ When mvn is executed, it will be run from the bin directory
 (defun jme-copy-import-statement ()
   "Copy an import directive that imports the current file."
   (interactive)
-  (kill-new (concat "import " (jme-current-class-name-fully-qualified) ";\n")))
+  (let ((import (concat "import " (jme-current-class-name-fully-qualified) ";\n")))
+    (kill-new import)
+    (message "Copied: %s" (s-trim import))))
 
 ;;------------------------------------------------------------------------------
 
@@ -615,15 +634,45 @@ subdirectory of target/classes."
                                   (kill-buffer buffer)
                                   result)
                     (get-class-path (line)
-                                    (let ((index (string-match "\\([-_a-zA-Z0-1/]*\\).class" line)))
+                                    (let ((index (string-match "\\([-_a-zA-Z0-9/\\$]*\\).class" line)))
                                       (if index
-                                          (match-string 1 line)))))
+                                          (s-replace "/" "." (match-string 1 line))))))
             (with-current-buffer buffer
               (close-buffer buffer
                             (mapcar #'get-class-path
-                                    (remove-if-not (lambda (line) (s-contains? ".class" line))
+                                    (remove-if (lambda (line)
+                                                 (or (not (s-contains? ".class" line))
+                                                     (s-contains? "$" line)))
                                                    (mapcar #'substring-no-properties
                                                            (s-lines (buffer-string))))))))))))
 
+;;------------------------------------------------------------------------------
+
+(cl-defun jme--get-class-names-from-project ()
+ "Return all of the Java class names defined current project's
+ jar files."
+ (let ((project-directory (jme-find-project-directory default-directory)))
+   (if project-directory
+        (apply #'append
+         (mapcar #'jme--get-class-names-from-jar
+                 (s-split ":" (jme-get-classpath project-directory)))))))
+  
+
+;;------------------------------------------------------------------------------
+
+(defun jme-helm-project-classes ()
+  "Use helm to select a class name."
+  (interactive)
+  (let ((candidates (jme--get-class-names-from-project)))
+    (dolist (c candidates)
+      (message c))
+    (helm :sources (helm-build-sync-source "Classes"
+                     :candidates candidates
+                     :fuzzy-match t)
+          :buffer "*Classes*")))
+
+;;------------------------------------------------------------------------------
+
 (provide 'jme)
 ;;; jme.el ends here
+
