@@ -166,7 +166,7 @@ When mvn is executed, it will be run from the bin directory
         (progn
           (save-some-buffers)
           (message "Generating Documentation...")
-          (jme--run-command (concat jme-maven-home "bin/mvn"  " -o" " javadoc:javadoc")
+          (jme--run-command (concat jme-maven-home "bin/mvn javadoc:javadoc")
                             project-directory)
           (message "Done.  Launching Browser...")
           (browse-url (concat "file://"
