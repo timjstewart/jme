@@ -8,6 +8,7 @@
 
 (require 'flycheck)
 (require 'javap-mode)
+(require 'helm)
 (require 's)
 (eval-when-compile
   (require 'cl))
@@ -87,14 +88,12 @@ When mvn is executed, it will be run from the bin directory
 
 (defun jme-tidy-buffer ()
   "Tidy up the current buffer."
-  (interactive)
-  (if (string-equal "java" (file-name-extension (buffer-file-name)))
-      (progn
-        (delete-trailing-whitespace)
-        (indent-region (point-min) (point-max))
-        (jme-sort-imports)
-        (jme-check-file-style))
-    (error "%s is not a java file" (buffer-file-name))))
+  (interactive "*")
+  (jme--require-java-source-file (buffer-file-name))
+  (delete-trailing-whitespace)
+  (indent-region (point-min) (point-max))
+  (jme-sort-imports)
+  (jme-check-file-style))
 
 ;;------------------------------------------------------------------------------
 
@@ -108,9 +107,22 @@ When mvn is executed, it will be run from the bin directory
 
 ;;------------------------------------------------------------------------------
 
+(defun jme-helm-insert-import-statement (&optional project-directory)
+  "Insert an import statement selected via helm."
+  (interactive "*")
+  (let ((project-directory (or project-directory
+                               (jme-find-project-directory default-directory))))
+    (if project-directory
+        (let ((import (jme-helm-project-classes project-directory)))
+          (if import
+              (jme-insert-import-statement (format "import %s;" import)))))))
+
+;;------------------------------------------------------------------------------
+
 (defun jme-insert-import-statement (import)
   "Insert the IMPORT statement."
-  (interactive)
+  (interactive "*")
+  (jme--require-java-source-file (buffer-file-name))
   (save-excursion
     (if (s-starts-with? "import" import)
         (progn
@@ -230,7 +242,7 @@ When mvn is executed, it will be run from the bin directory
 
 (defun jme-sort-imports ()
   "Sort imports lexicographically and by order in jme-package-order."
-  (interactive)
+  (interactive "*")
   (cl-flet ((find-index (import)
                         (position-if (lambda (package-prefix)
                                        (s-contains-p package-prefix import))
@@ -570,7 +582,6 @@ subdirectory of target/classes."
       "A flycheck checker for Java"
       :command (list javac-path
                      "-Xlint:all"
-                     ;"-Xdiags:verbose"
                      "-classpath"
                      classpath
                      'source)
@@ -595,7 +606,8 @@ subdirectory of target/classes."
 ;;------------------------------------------------------------------------------
 
 (cl-defun jme--run-command-with-output (command &key (args nil) (directory nil)
-                                                (banner nil) (compilation nil) (display 'on-error))
+                                                (banner nil) (compilation nil)
+                                                (display 'on-error))
   "Run COMMAND and write its output to output buffer."
   (let ((buffer (get-buffer-create +jme-output-buffer-name+)))
     (cl-flet ((sentinel (process event)
@@ -625,18 +637,20 @@ subdirectory of target/classes."
 
 ;;------------------------------------------------------------------------------
 
-(cl-defun jme--get-class-names-from-jar (jar-file)
-  "Return all of the Java class names defined in a JAR-FILE."
-  (if (string-equal "jar" (file-name-extension jar-file))
-      (let ((buffer (find-file-noselect (expand-file-name jar-file))))
+(cl-defun jme--get-class-names-from-jar (file-path)
+  "Return all of the Java class names defined in a FILE-PATH."
+  (cl-flet ((close-buffer (buffer result)
+                          (kill-buffer buffer)
+                          result)
+            (get-class-path (line)
+                            (let ((index (string-match "\\([-_a-zA-Z0-9/\\$]*\\).class" line)))
+                              (if index
+                                  (s-replace "/" "." (match-string 1 line))))))
+  (let ((extension (file-name-extension file-path)))
+    (if (and extension
+             (string-match "jar" extension))
+      (let ((buffer (find-file-noselect (expand-file-name file-path))))
         (when buffer
-          (cl-flet ((close-buffer (buffer result)
-                                  (kill-buffer buffer)
-                                  result)
-                    (get-class-path (line)
-                                    (let ((index (string-match "\\([-_a-zA-Z0-9/\\$]*\\).class" line)))
-                                      (if index
-                                          (s-replace "/" "." (match-string 1 line))))))
             (with-current-buffer buffer
               (close-buffer buffer
                             (mapcar #'get-class-path
@@ -644,32 +658,58 @@ subdirectory of target/classes."
                                                  (or (not (s-contains? ".class" line))
                                                      (s-contains? "$" line)))
                                                    (mapcar #'substring-no-properties
-                                                           (s-lines (buffer-string))))))))))))
+                                                           (s-lines (buffer-string)))))))))))))
 
 ;;------------------------------------------------------------------------------
 
-(cl-defun jme--get-class-names-from-project ()
- "Return all of the Java class names defined current project's
+(cl-defun jme--get-class-names-from-project (project-directory)
+  "Return all of the Java class names defined current project's
  jar files."
- (let ((project-directory (jme-find-project-directory default-directory)))
-   (if project-directory
-        (apply #'append
+  (apply #'append
          (mapcar #'jme--get-class-names-from-jar
-                 (s-split ":" (jme-get-classpath project-directory)))))))
+                 (s-split ":" (jme-get-classpath project-directory)))))
   
-
 ;;------------------------------------------------------------------------------
 
-(defun jme-helm-project-classes ()
-  "Use helm to select a class name."
-  (interactive)
-  (let ((candidates (jme--get-class-names-from-project)))
+(cl-defun jme-helm-project-classes (project-directory
+                                    &key (input nil))
+  "Use helm to select a class name for the project in PROJECT-DIRECTORY."
+  (let ((input (or input  (thing-at-point 'word t)))
+        (candidates (jme--get-class-names-from-project project-directory)))
     (dolist (c candidates)
       (message c))
     (helm :sources (helm-build-sync-source "Classes"
                      :candidates candidates
                      :fuzzy-match t)
-          :buffer "*Classes*")))
+          :buffer "*Classes*"
+          :input input)))
+
+;;------------------------------------------------------------------------------
+
+(defun jme--cache-jdk-class-names (jdk-version jar-file-path)
+  "Cache JDK version JDK-VERSION class names found in JAR-FILE-PATH to a file."
+  (let ((names (jme--get-class-names-from-jar jar-file-path)))
+    (with-temp-buffer
+      (insert (s-join "\n" (remove-if (lambda (name)
+                                        (s-contains? ".internal." name)) names)))
+      (write-region (point-min) (point-max)
+                    (expand-file-name (format "~/.jme-jdk-%s-cache" jdk-version))))))
+
+
+;;------------------------------------------------------------------------------
+
+(defun jme--is-java-source-file (file-path)
+  "Return t iff FILE-PATH is a Java source file."
+  (let ((extension (file-name-extension file-path)))
+    (and extension
+         (string-equal extension "java"))))
+
+;;------------------------------------------------------------------------------
+
+(defun jme--require-java-source-file (file-path)
+  "Return t iff FILE-PATH is a Java source file."
+  (if (not (jme--is-java-source-file file-path))
+      (error "%s is not a Java source file")))
 
 ;;------------------------------------------------------------------------------
 
