@@ -10,6 +10,7 @@
 (require 'javap-mode)
 (require 'helm)
 (require 's)
+
 (eval-when-compile
   (require 'cl))
 
@@ -20,11 +21,14 @@
 (defconst +jme-pom-file+ "pom.xml"
   "The name of the Maven Project Object Model file.")
 
-(defconst +jme-cache-file-name+ ".jme-cache"
+(defconst +jme-classpath-cache+ ".jme-classpath-cache"
   "The name of the Java CLASSPATH cache file.
 
 This file, if it exists, is located in the same directory as the
 pom.xml file.")
+
+(defconst +jme-class-cache+ ".jme-class-cache"
+  "The name of the class cache file.")
 
 (defconst +jme-output-buffer-name+ "*JME Output*"
   "The name of the buffer where output is written.")
@@ -419,10 +423,8 @@ returned."
 (defun jme-build-classpath (project-directory)
   "Return the Java CLASSPATH for the Maven project in PROJECT-DIRECTORY."
   (cl-flet ((should-filter (line)
-                           (or
-                            (s-starts-with? "[INFO]" line)
-                            (s-starts-with? "Downloaded" line)
-                            (s-starts-with? "Downloading" line))))
+                           (setq line (s-trim line))
+                           (not (s-starts-with? "/" line))))
     (let ((command (concat "JAVA_HOME=" jme-java-home
                            " " jme-maven-home "bin/mvn dependency:build-classpath")))
       (message "Building CLASSPATH.  This may take a while...")
@@ -478,7 +480,7 @@ in a particular directory."
 Note: The returned value may not name an existing file.  In fact,
 this function is mostly used when trying to see if the classpath
 cache file exists."
-  (concat (file-name-as-directory directory) +jme-cache-file-name+))
+  (concat (file-name-as-directory directory) +jme-classpath-cache+))
 
 ;;------------------------------------------------------------------------------
 
@@ -511,7 +513,7 @@ If the cache file does not exist, it is considered stale."
 Return the classpath that was written to the classpath cache
 file."
   (let ((cache-file-path (concat (file-name-as-directory project-directory)
-                                 +jme-cache-file-name+)))
+                                 +jme-classpath-cache+)))
     (if (or (file-writable-p cache-file-path)
             (not (file-exists-p cache-file-path)))
         (with-temp-buffer
@@ -676,8 +678,6 @@ subdirectory of target/classes."
   "Use helm to select a class name for the project in PROJECT-DIRECTORY."
   (let ((input (or input  (thing-at-point 'word t)))
         (candidates (jme--get-class-names-from-project project-directory)))
-    (dolist (c candidates)
-      (message c))
     (helm :sources (helm-build-sync-source "Classes"
                      :candidates candidates
                      :fuzzy-match t)
