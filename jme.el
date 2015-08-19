@@ -40,6 +40,14 @@ pom.xml file.")
 ;; Customizable Variables
 ;;==============================================================================
 
+(defcustom jme-ignored-classes "\\(\\.internal\\.\\|\\.corba\\.\\|\\.awt\\.\\|^sun\\.\\|^com\\.sun\\.\\|^com\\.apple\\.\\|^com\\.oracle\\.\\|^apple\\.\\)"
+  "A regular expression that matches classes you don't care about."
+  :group 'jme)
+
+(defcustom jme-jdk-version "1.8"
+  "The JDK verison to use."
+  :group 'jme)
+
 (defcustom jme-checkstyle-file nil
   "The checkstyle style file to use."
   :group 'jme)
@@ -84,20 +92,37 @@ When mvn is executed, it will be run from the bin directory
 (defun jme-import-class ()
   "Prompt user for a class to import."
   (interactive "*")
-  (let ((class (jme-helm-project-classes)))
+  (jme--require-java-source-file (buffer-file-name))
+  (let* ((project-directory (jme-find-project-directory default-directory))
+         (class (jme-helm-project-classes project-directory)))
     (if class
         (jme-insert-import-statement (concat "import " class ";")))))
 
 ;;------------------------------------------------------------------------------
 
-(defun jme-tidy-buffer ()
-  "Tidy up the current buffer."
-  (interactive "*")
+(defun jme-cache-jdk-class-names (jar-file-path jdk-version)
+  "Cache classes in JAR-FILE-PATH for JDK-VERSION to a file."
+  (interactive "fRuntime jar file: \nsVersion: ")
+  (let ((names (jme--get-class-names-from-jar jar-file-path)))
+    (with-temp-buffer
+      (insert (s-join "\n" (remove-if (lambda (name)
+                                        (string-match jme-ignored-classes (s-trim name))) names)))
+      (write-region (point-min) (point-max)
+                    (jme--get-jdk-cache-file jdk-version)))))
+
+;;------------------------------------------------------------------------------
+
+(cl-defun jme-tidy-buffer (arg)
+  "Tidy up the current buffer.
+
+With prefix argument, don't check style."
+  (interactive "*P")
   (jme--require-java-source-file (buffer-file-name))
   (delete-trailing-whitespace)
   (indent-region (point-min) (point-max))
   (jme-sort-imports)
-  (jme-check-file-style))
+  (unless arg
+    (jme-check-file-style)))
 
 ;;------------------------------------------------------------------------------
 
@@ -125,7 +150,7 @@ When mvn is executed, it will be run from the bin directory
 
 (defun jme-insert-import-statement (import)
   "Insert the IMPORT statement."
-  (interactive "*")
+  (interactive "*sEnter import statement (import java.util.Objects;): ")
   (jme--require-java-source-file (buffer-file-name))
   (save-excursion
     (if (s-starts-with? "import" import)
@@ -245,22 +270,22 @@ When mvn is executed, it will be run from the bin directory
 ;;------------------------------------------------------------------------------
 
 (defun jme-sort-imports ()
-  "Sort imports lexicographically and by order in jme-package-order."
+  "Sort imports lexicographically and by order in `jme-package-order'."
   (interactive "*")
   (cl-flet ((find-index (import)
-                        (position-if (lambda (package-prefix)
-                                       (s-contains-p package-prefix import))
-                                     jme-package-order))
+                         (position-if (lambda (package-prefix)
+                                        (s-contains-p package-prefix import))
+                                      jme-package-order))
             (compare (a ai b bi)
                      (cond ((and ai bi (= ai bi)) (string-lessp a b))
-                            ((and ai bi) (< ai bi))
-                            (ai t)
-                            (bi nil)
-                            (t (string-lessp a b)))))
+                           ((and ai bi) (< ai bi))
+                           (ai t)
+                           (bi nil)
+                           (t (string-lessp a b)))))
     (save-excursion
       (let* ((imports (list "")) ; This has the effect of dividing imports into
-                                 ; two groups: those in jme-package-order, and
-                                 ; those that are not.
+                                        ; two groups: those in jme-package-order, and
+                                        ; those that are not.
              (first-import-point nil)
              (last-import-point nil))
         (goto-char (point-min))
@@ -276,12 +301,13 @@ When mvn is executed, it will be run from the bin directory
                               (let ((ai (find-index a))
                                     (bi (find-index b)))
                                 (compare a ai b bi)))))
-        (delete-region first-import-point last-import-point)
-        (goto-char first-import-point)
-        (insert (s-join "\n" (remove-duplicates imports :test #'string-equal)))
-        (delete-blank-lines)
-        (if (not (looking-at "^$"))
-            (insert "\n"))))))
+        (when (and first-import-point last-import-point)
+          (delete-region first-import-point last-import-point)
+          (goto-char first-import-point)
+          (insert (s-join "\n" (remove-duplicates imports :test #'string-equal)))
+          (delete-blank-lines)
+          (if (not (looking-at "^$"))
+              (insert "\n")))))))
 
 ;;------------------------------------------------------------------------------
 
@@ -317,8 +343,8 @@ When mvn is executed, it will be run from the bin directory
 
 ;;------------------------------------------------------------------------------
 
-(defun jme-javap-file ()
-  "Disassemble current file using javap-mode."
+(defun jme-disassemble-file ()
+  "Disassemble current file using `javap-mode'."
   (interactive)
   (let ((class-file (jme--find-class-file (buffer-file-name))))
     (if (not class-file)
@@ -372,6 +398,7 @@ The user is prompted to save any modified buffers."
         (jme--run-maven-goals '("test") project-directory
                               :banner "Executing Tests...")
       (error "Not in a Maven project: %s" default-directory))))
+
 ;;------------------------------------------------------------------------------
 
 (defun jme-new-project (directory group-id artifact-id)
@@ -664,37 +691,55 @@ subdirectory of target/classes."
 
 ;;------------------------------------------------------------------------------
 
+(defun jme--get-project-class-name-cache-file (project-directory)
+  "Return the name of the cached class names file in PROJECT-DIRECTORY."
+  (expand-file-name (concat project-directory +jme-class-cache+)))
+
+;;------------------------------------------------------------------------------
+
 (cl-defun jme--get-class-names-from-project (project-directory)
-  "Return all of the Java class names defined current project's
- jar files."
-  (apply #'append
-         (mapcar #'jme--get-class-names-from-jar
-                 (s-split ":" (jme-get-classpath project-directory)))))
-  
+  "Return all of the Java class names defined in the current
+ project's jar files."
+  (let ((cache-file (jme--get-project-class-name-cache-file project-directory)))
+    (with-temp-buffer
+      (if (file-exists-p cache-file)
+          (insert-file-contents cache-file)
+        (progn
+          (message "Building Project Class Cache...")
+          (dolist (jar-file (s-split ":" (jme-get-classpath project-directory)))
+            (dolist (class (jme--get-class-names-from-jar jar-file))
+              (unless (or (s-contains? ".internal." class)
+                          (s-contains? ".corba." class))
+                  (insert class "\n"))))
+          (write-region (point-min) (point-max) cache-file))
+        (message "Building Project Class Cache... Done."))
+      (s-split "\n" (buffer-string)))))
+
+;;------------------------------------------------------------------------------
+
+(cl-defun jme--get-class-names-for-jdk (jdk-version)
+  "Return all of the Java class names defined for the specified
+JDK-VERSION."
+  (let ((jdk-cache-file (jme--get-jdk-cache-file jdk-version)))
+    (if (file-exists-p jdk-cache-file)
+        (with-temp-buffer
+          (insert-file-contents jdk-cache-file)
+          (s-split "\n" (buffer-string))))))
+
 ;;------------------------------------------------------------------------------
 
 (cl-defun jme-helm-project-classes (project-directory
                                     &key (input nil))
   "Use helm to select a class name for the project in PROJECT-DIRECTORY."
   (let ((input (or input  (thing-at-point 'word t)))
-        (candidates (jme--get-class-names-from-project project-directory)))
+        (candidates (append
+                     (jme--get-class-names-for-jdk jme-jdk-version)
+                     (jme--get-class-names-from-project project-directory))))
     (helm :sources (helm-build-sync-source "Classes"
                      :candidates candidates
                      :fuzzy-match t)
           :buffer "*Classes*"
           :input input)))
-
-;;------------------------------------------------------------------------------
-
-(defun jme--cache-jdk-class-names (jdk-version jar-file-path)
-  "Cache JDK version JDK-VERSION class names found in JAR-FILE-PATH to a file."
-  (let ((names (jme--get-class-names-from-jar jar-file-path)))
-    (with-temp-buffer
-      (insert (s-join "\n" (remove-if (lambda (name)
-                                        (s-contains? ".internal." name)) names)))
-      (write-region (point-min) (point-max)
-                    (expand-file-name (format "~/.jme-jdk-%s-cache" jdk-version))))))
-
 
 ;;------------------------------------------------------------------------------
 
@@ -709,10 +754,17 @@ subdirectory of target/classes."
 (defun jme--require-java-source-file (file-path)
   "Return t iff FILE-PATH is a Java source file."
   (if (not (jme--is-java-source-file file-path))
-      (error "%s is not a Java source file")))
+      (error "%s is not a Java source file" file-path)))
+
+;;------------------------------------------------------------------------------
+
+(defun jme--get-jdk-cache-file (jdk-version)
+  "Return the name of the file where the JDK-VERSION classes are cached."
+  (expand-file-name (format "~/.jme-jdk-%s-cache" jdk-version)))
 
 ;;------------------------------------------------------------------------------
 
 (provide 'jme)
+
 ;;; jme.el ends here
 
