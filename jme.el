@@ -401,17 +401,17 @@ The user is prompted to save any modified buffers."
 
 ;;------------------------------------------------------------------------------
 
-(defun jme-new-project (directory group-id artifact-id)
-  "Create a new Maven project in DIRECTORY with the given GROUP-ID and ARTIFACT-ID."
-  (interactive "Ddirectory: \nsgroup-id: \nsartifact-id: ")
-  (if (or (not (jme-find-project-directory directory))
+(defun jme-new-project (group-id artifact-id)
+  "Create a new Maven project in current directory with the given GROUP-ID and ARTIFACT-ID."
+  (interactive "sgroup-id: \nsartifact-id: ")
+  (if (or (not (jme-find-project-directory default-directory))
           (y-or-n-p (format "%s is already in a Maven project.  Continue?"
                                   directory)))
       (jme--run-maven-goals (list "-B" "archetype:generate"
                                   "-DarchetypeGroupId=org.apache.maven.archetypes"
                                   (format "-DgroupId=%s" group-id)
                                   (format "-DartifactId=%s" artifact-id))
-                            directory
+                            default-directory
                             :banner "Creating project...")))
 
 ;;==============================================================================
@@ -565,6 +565,8 @@ subdirectory of target/classes."
          (command (concat (file-name-as-directory jme-java-home) "bin/javac"))
          (banner (concat "Compiling: " file-path "\n"
                          "CLASSPATH: " classpath "\n")))
+    (if (not (file-exists-p (concat project-directory "/target/classes")))
+        (make-directory (concat project-directory "/target/classes") t))
     (jme--run-command-with-output command
                                   :directory project-directory
                                   :compilation t
@@ -660,6 +662,8 @@ subdirectory of target/classes."
               (insert banner "\n"))
           (if (eq display 'always)
               (pop-to-buffer buffer))
+          (message "Working directory: %s" default-directory)
+          (message "Running: %s" (s-join " " (cons command args)))
           (let ((process (apply #'start-process "jme-process"
                                 buffer command args)))
             (set-process-sentinel process #'sentinel)))))))
@@ -700,9 +704,11 @@ subdirectory of target/classes."
 (cl-defun jme--get-class-names-from-project (project-directory)
   "Return all of the Java class names defined in the current
  project's jar files."
-  (let ((cache-file (jme--get-project-class-name-cache-file project-directory)))
+  (let ((cache-file (jme--get-project-class-name-cache-file project-directory))
+        (pom-file-path (jme--get-pom-file-path project-directory)))
     (with-temp-buffer
-      (if (file-exists-p cache-file)
+      (if (and (file-exists-p cache-file)
+               (file-newer-than-file-p cache-file pom-file-path))
           (insert-file-contents cache-file)
         (progn
           (message "Building Project Class Cache...")
