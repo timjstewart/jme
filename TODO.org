@@ -1,0 +1,21 @@
+#+TITLE: To Do List for JME
+
+* navigable_errors [0/3]
+** TODO maven errors are navigable
+** TODO javac errors are navigable
+** TODO checkstyle errors are navigable
+
+* typed_custom_vars [0/1]
+** TODO all customizable variables have widget types
+* helm_project_classes [0/1]
+** TODO project classes appear in helm listing
+* run_specific_test [0/1]
+** TODO user can select a single test to run
+* group_imports [0/1]
+** TODO group imports according to rules
+* faster_failing_compile [0/1]
+*** TODO failing compiles are now faster
+    Not sure why but when a compilation fails, it takes more time to
+    show the compilation output.
+* check_project_style [0/1]
+** TODO you can now check your entire project's style.
