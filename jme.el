@@ -175,7 +175,9 @@ With prefix argument, don't check style."
 ;;------------------------------------------------------------------------------
 
 (defun jme-rebuild-classpath-cache ()
-  "Force the CLASSPATH cache to be rebuilt."
+  "Force the CLASSPATH cache to be rebuilt.
+
+If you have to call this, I've got a bug I need to fix."
   (interactive)
   (let ((project-directory (jme-find-project-directory default-directory)))
     (if project-directory
@@ -317,6 +319,8 @@ With prefix argument, don't check style."
   (let* ((project-directory (jme-find-project-directory default-directory))
          (classpath (jme-get-classpath project-directory))
          (javac-path (concat jme-java-home "/bin/javac")))
+    (jme-debug "Installing checker in directory: %s with CLASSPATH: %s"
+               project-directory classpath)
     (flycheck-define-command-checker
         'jme "A flycheck checker for Java"
         :command (list javac-path
@@ -442,8 +446,9 @@ returned."
 (defun jme-clear-classpath-cache (project-directory)
   "Deletes the classpath cache file in PROJECT-DIRECTORY."
   (let ((cache-file-path (jme--get-cache-file-path project-directory)))
-    (if (file-exists-p cache-file-path)
-        (delete-file cache-file-path))))
+    (when (file-exists-p cache-file-path)
+      (jme-debug "Cache file exists: %s.  Deleting..." cache-file-path)
+      (delete-file cache-file-path))))
 
 ;;------------------------------------------------------------------------------
 
@@ -458,7 +463,7 @@ returned."
       (concat (expand-file-name (file-name-as-directory project-directory))
                       "target/classes" ":"
                       (apply #'concat (cl-remove-if #'should-filter
-                                    (jme--run-command command project-directory)))))))
+                                                    (jme--run-command command project-directory)))))))
 
 ;;------------------------------------------------------------------------------
 
@@ -470,8 +475,11 @@ classpath, and stores it in the classpath cache file."
   (let* ((project-directory (jme-find-project-directory current-directory))
          (classpath (jme--read-classpath-cache project-directory)))
     (or classpath
-        (jme--write-classpath-cache (jme-build-classpath project-directory)
-                                    project-directory))))
+        (progn
+          (let ((classpath (jme--write-classpath-cache (jme-build-classpath project-directory)
+                                                       project-directory)))
+            (jme-install-checker)
+            classpath)))))
 
 ;;------------------------------------------------------------------------------
 
@@ -567,6 +575,7 @@ subdirectory of target/classes."
                          "CLASSPATH: " classpath "\n")))
     (if (not (file-exists-p (concat project-directory "/target/classes")))
         (make-directory (concat project-directory "/target/classes") t))
+    (jme-debug "Compiling file: %s with CLASSPATH: %s..." file-path classpath)
     (jme--run-command-with-output command
                                   :directory project-directory
                                   :compilation t
@@ -589,6 +598,8 @@ subdirectory of target/classes."
 (cl-defun jme--run-maven-goals (goals project-directory &key (banner nil))
   "Run the specified Maven GOALS on the project in PROJECT-DIRECTORY."
   (setenv "JAVA_HOME" jme-java-home)
+  (jme-debug "Running mvn goals: %s in directory: %s..."
+             (s-join ", " goals) project-directory)
   (jme--run-command-with-output (concat jme-maven-home "bin/mvn")
                                 :directory project-directory
                                 :display 'always
@@ -609,6 +620,7 @@ subdirectory of target/classes."
   "Install a flychecker for Java source in PROJECT-DIRECTORY."
   (let* ((classpath (jme-get-classpath project-directory))
          (javac-path (concat jme-java-home "/bin/javac")))
+    (jme-debug "Installing flycheck checker with CLASSPATH: %s" classpath)
     (flycheck-define-command-checker 'jme
       "A flycheck checker for Java"
       :command (list javac-path
@@ -767,6 +779,13 @@ JDK-VERSION."
 (defun jme--get-jdk-cache-file (jdk-version)
   "Return the name of the file where the JDK-VERSION classes are cached."
   (expand-file-name (format "~/.jme-jdk-%s-cache" jdk-version)))
+
+;;------------------------------------------------------------------------------
+
+(cl-defun jme-debug (format &rest args)
+  "Print a debug message using FORMAT and ARGS if `jme-debug-mode` is non-nil."
+  (if jme-debug-mode
+      (message (format "jme-debug: %s" (apply #'format format args)))))
 
 ;;------------------------------------------------------------------------------
 
