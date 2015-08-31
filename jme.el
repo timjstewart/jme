@@ -174,21 +174,6 @@ With prefix argument, don't check style."
 
 ;;------------------------------------------------------------------------------
 
-(defun jme-rebuild-classpath-cache ()
-  "Force the CLASSPATH cache to be rebuilt.
-
-If you have to call this, I've got a bug I need to fix."
-  (interactive)
-  (let ((project-directory (jme-find-project-directory default-directory)))
-    (if project-directory
-        (progn
-          (jme-clear-classpath-cache project-directory)
-          (jme-get-classpath project-directory)
-          (jme-install-checker))
-      (error "Not in a Maven project: %s" default-directory))))
-
-;;------------------------------------------------------------------------------
-
 (defun jme-generate-javadoc ()
   "Generate JavaDoc documentation for the current project."
   (interactive)
@@ -457,7 +442,7 @@ returned."
   (cl-flet ((should-filter (line)
                            (setq line (s-trim line))
                            (not (s-starts-with? "/" line))))
-    (let ((command (concat "JAVA_HOME=" jme-java-home
+    (let ((command (concat "JAVA_HOME=" (expand-file-name jme-java-home)
                            " " jme-maven-home "bin/mvn dependency:build-classpath")))
       (message "Building CLASSPATH.  This may take a while...")
       (concat (expand-file-name (file-name-as-directory project-directory))
@@ -597,7 +582,7 @@ subdirectory of target/classes."
 
 (cl-defun jme--run-maven-goals (goals project-directory &key (banner nil))
   "Run the specified Maven GOALS on the project in PROJECT-DIRECTORY."
-  (setenv "JAVA_HOME" jme-java-home)
+  (setenv "JAVA_HOME" (expand-file-name jme-java-home))
   (jme-debug "Running mvn goals: %s in directory: %s..."
              (s-join ", " goals) project-directory)
   (jme--run-command-with-output (concat jme-maven-home "bin/mvn")
