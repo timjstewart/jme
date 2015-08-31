@@ -40,8 +40,6 @@ useful.
 * jme-javap-file - disassemble the current Java source file (requires
   javap-mode).
 * jme-new-project - creates a new Maven project.
-* jme-rebuild-classpath-cache - clears the CLASSPATH cache and
-  rebuilds it.  Also installs updated flychecker.
 * jme-run-maven - runs one or more Maven commands that the user
   specifies.
 * jme-run-tests - runs unit tests.
