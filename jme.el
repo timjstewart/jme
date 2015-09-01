@@ -2,9 +2,7 @@
 
 ;;; Commentary:
 
-;;;=============================================================================
 ;;; Code:
-;;;=============================================================================
 
 (require 'flycheck)
 (require 'javap-mode)
@@ -14,9 +12,9 @@
 (eval-when-compile
   (require 'cl))
 
-;;==============================================================================
-;; Constants
-;;==============================================================================
+
+
+;;; Constants
 
 (defconst +jme-pom-file+ "pom.xml"
   "The name of the Maven Project Object Model file.")
@@ -36,9 +34,9 @@ pom.xml file.")
 (defconst +jme-source-directory-regexp+
   "/src/\\(main\\|test\\)/\\(scala\\|java\\)/\\(.*\\)/")
 
-;;==============================================================================
-;; Customizable Variables
-;;==============================================================================
+
+
+;;; Customizable Variables
 
 (defcustom jme-ignored-classes "\\(\\.internal\\.\\|\\.corba\\.\\|\\.awt\\.\\|^sun\\.\\|^com\\.sun\\.\\|^com\\.apple\\.\\|^com\\.oracle\\.\\|^apple\\.\\)"
   "A regular expression that matches classes you don't care about."
@@ -76,18 +74,18 @@ When mvn is executed, it will be run from the bin directory
   "Define an order for packages."
   :group 'jme)
 
-;;==============================================================================
-;; Customization Group
-;;==============================================================================
+
+
+;;; Customization Group
 
 (defgroup jme nil
   "Package of Java Development utilities."
   :prefix "jme-"
   :group 'languages)
 
-;;==============================================================================
-;; Commands
-;;==============================================================================
+
+
+;;; Commands
 
 (defun jme-import-class ()
   "Prompt user for a class to import."
@@ -98,7 +96,7 @@ When mvn is executed, it will be run from the bin directory
     (if class
         (jme-insert-import-statement (concat "import " class ";")))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-cache-jdk-class-names (jar-file-path jdk-version)
   "Cache classes in JAR-FILE-PATH for JDK-VERSION to a file."
@@ -110,7 +108,7 @@ When mvn is executed, it will be run from the bin directory
       (write-region (point-min) (point-max)
                     (jme--get-jdk-cache-file jdk-version)))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme-tidy-buffer (arg)
   "Tidy up the current buffer.
@@ -124,7 +122,7 @@ With prefix argument, don't check style."
   (unless arg
     (jme-check-file-style)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-edit-pom-file ()
   "Edit the pom.xml file in a buffer."
@@ -134,10 +132,10 @@ With prefix argument, don't check style."
           (find-file (jme--get-pom-file-path project-directory))
         (error "Not in a Maven project: %s" default-directory))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-helm-insert-import-statement (&optional project-directory)
-  "Insert an import statement selected via helm."
+  "Insert an import statement selected via helm for a file under PROJECT-DIRECTORY."
   (interactive "*")
   (let ((project-directory (or project-directory
                                (jme-find-project-directory default-directory))))
@@ -146,7 +144,7 @@ With prefix argument, don't check style."
           (if import
               (jme-insert-import-statement (format "import %s;" import)))))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-insert-import-statement (import)
   "Insert the IMPORT statement."
@@ -163,7 +161,7 @@ With prefix argument, don't check style."
           (jme-sort-imports))
       (error "Not an import statement: %s" import))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-yank-import-statement ()
   "Insert the import statement the top of the kill ring."
@@ -172,7 +170,7 @@ With prefix argument, don't check style."
     (let ((import (s-trim (substring-no-properties (current-kill 0 t)))))
        (jme-insert-import-statement import))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-generate-javadoc ()
   "Generate JavaDoc documentation for the current project."
@@ -190,7 +188,7 @@ With prefix argument, don't check style."
                               "target/site/apidocs/index.html")))
       (error "Not in a Maven project: %s" default-directory))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-run-maven (commands)
   "Run one or more Maven COMMANDS."
@@ -204,7 +202,7 @@ With prefix argument, don't check style."
            :banner (format "Running 'mvn %s' in %s..." commands project-directory)))
       (error "Not in a Maven project: %s" default-directory))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-check-file-style ()
   "Run checkstyle on a Maven project."
@@ -223,7 +221,7 @@ With prefix argument, don't check style."
                                                 (buffer-file-name)))
   (message "Checking Style... Done."))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-current-package-name ()
   "Return the current package name."
@@ -237,7 +235,7 @@ With prefix argument, don't check style."
             nil))
       (error "Buffer has no file name"))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-current-class-name-fully-qualified ()
   "Return the fully qualified name of the current class."
@@ -245,7 +243,7 @@ With prefix argument, don't check style."
   (concat (jme-current-package-name) "."
           (file-name-nondirectory (file-name-sans-extension (buffer-file-name)))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-copy-import-statement ()
   "Copy an import directive that imports the current file."
@@ -254,7 +252,7 @@ With prefix argument, don't check style."
     (kill-new import)
     (message "Copied: %s" (s-trim import))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-sort-imports ()
   "Sort imports lexicographically and by order in `jme-package-order'."
@@ -296,7 +294,7 @@ With prefix argument, don't check style."
           (if (not (looking-at "^$"))
               (insert "\n")))))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-install-checker ()
   "Install a flychecker given a DIRECTORY in the project."
@@ -317,7 +315,7 @@ With prefix argument, don't check style."
         :modes 'java-mode)
     (add-to-list 'flycheck-checkers 'jme)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme ()
   "Turn on all the jme features."
@@ -330,7 +328,7 @@ With prefix argument, don't check style."
                       (jme-install-checker))
                   (message "Switching Projects... Done.")))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-disassemble-file ()
   "Disassemble current file using `javap-mode'."
@@ -346,7 +344,7 @@ With prefix argument, don't check style."
             (javap-buffer))
         (find-file class-file)))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-compile-current-file ()
   "Compiles the current source file.
@@ -361,7 +359,7 @@ compilation if the save hook is installed."
   (jme--compile-file (buffer-file-name))
   (message "Compiling %s... Done." (buffer-file-name)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-compile-project ()
   "Compile the current Maven project.
@@ -377,7 +375,7 @@ The user is prompted to save any modified buffers."
            :banner (format "Compiling project: %s..." project-directory)))
       (error "Not in a Maven project: %s" default-directory))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-run-tests ()
   "Run all of the test suites in the current project."
@@ -388,7 +386,7 @@ The user is prompted to save any modified buffers."
                               :banner "Executing Tests...")
       (error "Not in a Maven project: %s" default-directory))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-new-project (group-id artifact-id)
   "Create a new Maven project in current directory with the given GROUP-ID and ARTIFACT-ID."
@@ -403,9 +401,9 @@ The user is prompted to save any modified buffers."
                             default-directory
                             :banner "Creating project...")))
 
-;;==============================================================================
-;; Public Functions
-;;==============================================================================
+
+
+;;; Public Functions
 
 (defun jme-find-project-directory (current-directory)
   "Find the Maven project directory starting in CURRENT-DIRECTORY.
@@ -426,7 +424,7 @@ returned."
           (jme-find-project-directory
            (file-name-directory (directory-file-name current-directory)))))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-clear-classpath-cache (project-directory)
   "Deletes the classpath cache file in PROJECT-DIRECTORY."
@@ -435,7 +433,7 @@ returned."
       (jme-debug "Cache file exists: %s.  Deleting..." cache-file-path)
       (delete-file cache-file-path))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-build-classpath (project-directory)
   "Return the Java CLASSPATH for the Maven project in PROJECT-DIRECTORY."
@@ -450,7 +448,7 @@ returned."
                       (apply #'concat (cl-remove-if #'should-filter
                                                     (jme--run-command command project-directory)))))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme-get-classpath (current-directory &key (rebuild nil))
   "Return the CLASSPATH for the project that owns CURRENT-DIRECTORY.
@@ -466,7 +464,7 @@ classpath, and stores it in the classpath cache file."
             (jme-install-checker)
             classpath)))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme-install-save-hook ()
   "Install a 'after-save-hook' that compiles Java source files."
@@ -476,9 +474,9 @@ classpath, and stores it in the classpath cache file."
                 (if (string-equal "java" (file-name-extension file-name))
                     (jme--compile-file (buffer-file-name)))))))
 
-;;==============================================================================
-;; Private Functions
-;;==============================================================================
+
+
+;;; Private Functions
 
 (defun jme--get-pom-file-path (directory)
   "Return the concatenation of DIRECTORY and pom.xml.
@@ -492,7 +490,7 @@ in a particular directory."
             (concat parent-directory +jme-pom-file+)
           nil))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--get-cache-file-path (directory)
   "Return the concatenation of DIRECTORY and the cache file.
@@ -502,7 +500,7 @@ this function is mostly used when trying to see if the classpath
 cache file exists."
   (concat (file-name-as-directory directory) +jme-classpath-cache+))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--read-classpath-cache (project-directory)
   "Return the cached CLASSPATH stored in PROJECT-DIRECTORY.
@@ -514,7 +512,7 @@ If the cache file does not exist, return nil."
           (insert-file-contents cache-file-path)
           (s-join ":" (s-split "\n" (s-trim (buffer-string))))))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--is-cache-stale (project-directory)
   "Return t iff the cache file in PROJECT-DIRECTORY is stale.
@@ -525,7 +523,7 @@ If the cache file does not exist, it is considered stale."
     (or (not (file-exists-p cache-file-path))
         (file-newer-than-file-p pom-file-path cache-file-path))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--write-classpath-cache (classpath project-directory)
   "Write CLASSPATH to the cache file in PROJECT-DIRECTORY.
@@ -544,7 +542,7 @@ file."
       (error "Error: jme classpath cache file is not writeable: %s"
              cache-file-path))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--compile-file (file-path)
   "Compile source Java file named FILE-PATH.
@@ -571,14 +569,14 @@ subdirectory of target/classes."
                                               "-classpath" classpath
                                               file-path))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--require-buffer-file ()
   "Raise error if current buffer is not visiting a file."
     (if (not (buffer-file-name))
       (error "The buffer '%s' is not visiting a file" (buffer-name))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme--run-maven-goals (goals project-directory &key (banner nil))
   "Run the specified Maven GOALS on the project in PROJECT-DIRECTORY."
@@ -592,14 +590,14 @@ subdirectory of target/classes."
                                 :compilation t
                                 :args goals))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--run-command (command project-directory)
   "Run COMMAND in the PROJECT-DIRECTORY directory."
   (let ((default-directory (file-name-as-directory project-directory)))
     (s-split "\n" (shell-command-to-string command) t)))
 
-;;-------------------------------------------------------------------------------
+
 
 (defun jme--install-checker (project-directory)
   "Install a flychecker for Java source in PROJECT-DIRECTORY."
@@ -617,7 +615,7 @@ subdirectory of target/classes."
       :modes 'java-mode)
     (add-to-list 'flycheck-checkers 'jme)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--find-class-file (source-file-path)
   "Return the .class file for SOURCE-FILE-PATH."
@@ -631,7 +629,7 @@ subdirectory of target/classes."
               (file-name-sans-extension relative-path)
               ".class"))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme--run-command-with-output (command &key (args nil) (directory nil)
                                                 (banner nil) (compilation nil)
@@ -665,7 +663,7 @@ subdirectory of target/classes."
                                 buffer command args)))
             (set-process-sentinel process #'sentinel)))))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme--get-class-names-from-jar (file-path)
   "Return all of the Java class names defined in a FILE-PATH."
@@ -690,13 +688,13 @@ subdirectory of target/classes."
                                                    (mapcar #'substring-no-properties
                                                            (s-lines (buffer-string)))))))))))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--get-project-class-name-cache-file (project-directory)
   "Return the name of the cached class names file in PROJECT-DIRECTORY."
   (expand-file-name (concat project-directory +jme-class-cache+)))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme--get-class-names-from-project (project-directory)
   "Return all of the Java class names defined in the current
@@ -718,7 +716,7 @@ subdirectory of target/classes."
         (message "Building Project Class Cache... Done."))
       (s-split "\n" (buffer-string)))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme--get-class-names-for-jdk (jdk-version)
   "Return all of the Java class names defined for the specified
@@ -729,7 +727,7 @@ JDK-VERSION."
           (insert-file-contents jdk-cache-file)
           (s-split "\n" (buffer-string))))))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme-helm-project-classes (project-directory
                                     &key (input nil))
@@ -744,7 +742,7 @@ JDK-VERSION."
           :buffer "*Classes*"
           :input input)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--is-java-source-file (file-path)
   "Return t iff FILE-PATH is a Java source file."
@@ -752,27 +750,27 @@ JDK-VERSION."
     (and extension
          (string-equal extension "java"))))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--require-java-source-file (file-path)
   "Return t iff FILE-PATH is a Java source file."
   (if (not (jme--is-java-source-file file-path))
       (error "%s is not a Java source file" file-path)))
 
-;;------------------------------------------------------------------------------
+
 
 (defun jme--get-jdk-cache-file (jdk-version)
   "Return the name of the file where the JDK-VERSION classes are cached."
   (expand-file-name (format "~/.jme-jdk-%s-cache" jdk-version)))
 
-;;------------------------------------------------------------------------------
+
 
 (cl-defun jme-debug (format &rest args)
   "Print a debug message using FORMAT and ARGS if `jme-debug-mode` is non-nil."
   (if jme-debug-mode
       (message (format "jme-debug: %s" (apply #'format format args)))))
 
-;;------------------------------------------------------------------------------
+
 
 (provide 'jme)
 
