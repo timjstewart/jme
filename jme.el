@@ -320,8 +320,8 @@ With prefix argument, don't check style."
 (defun jme ()
   "Turn on all the jme features."
   (interactive)
-  (if (symbolp projectile-switch-project-hook)
-      (add-hook 'projectile-switch-project-hook
+  (if (symbolp projectile-after-switch-project-hook)
+      (add-hook 'projectile-after-switch-project-hook
                 (lambda ()
                   (message "Switching Projects...")
                   (if (jme-find-project-directory default-directory)
