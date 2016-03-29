@@ -245,6 +245,13 @@ With prefix argument, don't check style."
 
 
 
+(defun jme-current-class-short-name ()
+  "Return the short name of the current class."
+  (interactive)
+  (file-name-nondirectory (file-name-sans-extension (buffer-file-name))))
+
+
+
 (defun jme-copy-import-statement ()
   "Copy an import directive that imports the current file."
   (interactive)
@@ -383,6 +390,22 @@ The user is prompted to save any modified buffers."
   (let ((project-directory (jme-find-project-directory default-directory)))
     (if project-directory
         (jme--run-maven-goals '("test") project-directory
+                              :banner "Executing Tests...")
+      (error "Not in a Maven project: %s" default-directory))))
+
+
+
+(defun jme-run-current-suite ()
+  "Run all of the tests in the current module."
+  (interactive)
+  (jme--require-java-source-file (buffer-file-name))
+  (save-some-buffers)
+  (let ((project-directory (jme-find-project-directory default-directory))
+        (test-param (concat "-Dtest=" (jme-current-class-short-name))))
+    (message (concat "Running tests in " (jme-current-class-short-name) "..."))
+    (if project-directory
+        (jme--run-maven-goals (list "test-compile" test-param "test")
+                              project-directory
                               :banner "Executing Tests...")
       (error "Not in a Maven project: %s" default-directory))))
 
@@ -657,8 +680,8 @@ subdirectory of target/classes."
               (insert banner "\n"))
           (if (eq display 'always)
               (pop-to-buffer buffer))
-          (message "Working directory: %s" default-directory)
-          (message "Running: %s" (s-join " " (cons command args)))
+          (jme-debug "Working directory: %s" default-directory)
+          (jme-debug "Running: %s" (s-join " " (cons command args)))
           (let ((process (apply #'start-process "jme-process"
                                 buffer command args)))
             (set-process-sentinel process #'sentinel)))))))
